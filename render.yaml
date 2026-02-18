@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: backend-2
+    runtime: python
+    repo: https://github.com/pg460482-cell/backend
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+    pythonVersion: 3.11
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///test.db
