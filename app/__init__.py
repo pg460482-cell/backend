@@ -46,7 +46,12 @@ def create_app(config_class=Config):
     
     # Error handlers
     register_error_handlers(app)
+        # ✅ YEH 4 LINES ADD KAR - Tables automatically ban jayengi
+    with app.app_context():
+        db.create_all()
+        app.logger.info("✅ Database tables created/verified on startup")
     
+    # Health check endpoint (global)
     # Health check endpoint
     @app.route('/health')
     def health_check():
