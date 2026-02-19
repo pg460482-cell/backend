@@ -5,7 +5,6 @@ from app.api import bp
 from app.models import User, Token
 from datetime import datetime
 
-
 # =========================
 # GET CURRENT USER PROFILE
 # =========================
