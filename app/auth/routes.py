@@ -75,7 +75,7 @@ def register():
             token=verify_token,
             token_type='verify',
             expires_at=datetime.utcnow()+timedelta(hours=24),
-            user_id=str(user.id),
+            user_id=user.id,
             device_info=request.headers.get('User-Agent','Unknown')[:200],
             ip_address=request.remote_addr
         )
