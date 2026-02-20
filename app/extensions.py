@@ -36,16 +36,18 @@ limiter = Limiter(
 
 # ================= JWT CALLBACKS =================
 @jwt.user_identity_loader
-def user_identity_lookup(user):
-    """User object se string identity do"""
-    return str(user.id)  # ✅ String return karo
+def user_identity_lookup(identity):
+    """Handle both user object and user id"""
+    if hasattr(identity, 'id'):  # Agar object hai to
+        return str(identity.id)
+    return str(identity)  # Agar integer hai to (jaise user.id)
 
 @jwt.user_lookup_loader
 def user_lookup_callback(_jwt_header, jwt_data):
     """JWT se user fetch karo"""
-    from app.models import User  # Circular import se bachne ke liye
+    from app.models import User
     identity = jwt_data["sub"]
-    return User.query.get(int(identity))  # ✅ User return karo
+    return User.query.get(int(identity))
 
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
