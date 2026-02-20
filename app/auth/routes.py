@@ -67,7 +67,7 @@ def register():
         db.session.add(user)
         db.session.flush()
         verify_token=create_access_token(
-            identity=user.id,
+            identity=str(user.id),
             expires_delta=timedelta(hours=24),
             additional_claims={'type':'email_verification'}
         )
@@ -75,7 +75,7 @@ def register():
             token=verify_token,
             token_type='verify',
             expires_at=datetime.utcnow()+timedelta(hours=24),
-            user_id=user.id,
+            user_id=str(user.id),
             device_info=request.headers.get('User-Agent','Unknown')[:200],
             ip_address=request.remote_addr
         )
