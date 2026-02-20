@@ -5,7 +5,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from datetime import datetime
-
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -33,31 +32,32 @@ def create_app(config_class=Config):
     limiter.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     
-    # JWT configuration
-  ##  from app.auth import jwt_callbacks
-  #  jwt_callbacks.setup_jwt_callbacks(jwt)
-    
     # Register blueprints
     from app.auth.routes import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     
-   # from app.api.routes import bp as api_bp
-    #app.register_blueprint(api_bp, url_prefix='/api/v1')
-    
     # Error handlers
     register_error_handlers(app)
-        # ✅ YEH 4 LINES ADD KAR - Tables automatically ban jayengi
+    
+    # ✅ Database tables create
     with app.app_context():
         db.create_all()
         app.logger.info("✅ Database tables created/verified on startup")
     
-    # Health check endpoint (global)
+    # 🔥 Sab users verify kar do
+    with app.app_context():
+        from app.models import User
+        User.query.update({User.is_verified: True})
+        db.session.commit()
+        app.logger.info("✅ All users verified successfully!")
+    
     # Health check endpoint
     @app.route('/health')
     def health_check():
         return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
     
     return app
+
 
 def register_error_handlers(app):
     @app.errorhandler(404)
