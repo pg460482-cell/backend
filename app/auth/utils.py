@@ -7,20 +7,46 @@ import secrets
 import re
 
 def generate_token(user, token_type, expires_in=3600):
-    """Generate crytographically secure token"""
-    token=secrets.token_urlsafe(32)
-    expires_at=datetime.utcnow()+timedelta(seconds=expires_in)
+    """Generate cryptographically secure token"""
 
-    token_record=Token(
+    # 🔴 1️⃣ Delete old tokens of same type
+    Token.query.filter_by(
+        user_id=user.id,
+        token_type=token_type
+    ).delete(synchronize_session=False)
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+
+    token_record = Token(
         token=token,
         token_type=token_type,
         expires_at=expires_at,
         user_id=user.id,
         device_info=request.headers.get('User-Agent', '')[:200] if request else '',
         ip_address=request.remote_addr if request else ''
-
     )
+
+    # 🔴 2️⃣ Add and commit HERE
+    db.session.add(token_record)
+    db.session.commit()
+
     return token_record, token
+def send_email(subject,recipients,body,html=None):
+    try:
+        msg=Message(
+            subject=subject,
+            recipients=recipients,
+            body=body,
+            html=html,
+            sender=app.config['MAIL_DEFAULT_SENDER']
+        )
+        mail.send(msg)
+        app.logger.info(f"Email sent to {recipients}")
+        return True
+    except Exception as e:
+        app.logger.error(f"Failed to send email: {str(e)}")
+        return False
 def send_email(subject, recipients, body, html=None):
     try:
         msg=Message(
@@ -40,9 +66,7 @@ def send_email(subject, recipients, body, html=None):
 def send_verification_email(user):
     token_record, token=generate_token(user, 'verify', expires_in=86400)
 
-    db.session.add(token_record)
-    db.session.commit()
-
+    
     
 
 
@@ -73,8 +97,7 @@ def send_password_reset_email(user):
     """Send password reset email"""
     token_record, token = generate_token(user, 'reset', expires_in=3600)
     
-    db.session.add(token_record)
-    db.session.commit()
+   -
     
     reset_url = url_for('auth.reset_password', token=token, _external=True)
     
