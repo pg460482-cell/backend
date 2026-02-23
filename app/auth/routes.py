@@ -223,7 +223,7 @@ def refresh():
         app.logger.error(f"Refresh error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-# ================ VERIFY EMAIL ================
+
 @bp.route('/verify-email/<token>', methods=['GET'])
 @limiter.limit("10 per minute")
 def verify_email(token):
@@ -280,7 +280,7 @@ def forgot_password():
 
     if user:
         try:
-            # 🔐 1️⃣ Delete old reset tokens (Very Important)
+            # 🔐 1️⃣ Delete old reset tokens
             Token.query.filter_by(
                 user_id=user.id,
                 token_type='reset'
@@ -307,18 +307,15 @@ def forgot_password():
             db.session.add(token_record)
             db.session.commit()
 
-            # 📩 5️⃣ TODO: Send email with reset link
-            # Example:
-            # reset_link = f"https://yourfrontend.com/reset-password?token={reset_token}"
-            # send_email(user.email, reset_link)
-
+            # 📝 5️⃣ Log token for testing (remove in production)
             app.logger.info(f"Password reset token created for {email}")
+            app.logger.info(f"🔐 Reset token: {reset_token}")  # 👈 YEH LINE ADD KARO
+            app.logger.info(f"⏳ Expires at: {expires_at}")
 
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Forgot password error: {str(e)}")
-
-    # 🔒 Always return same response (prevent email enumeration)
+    
     return jsonify({
         'message': 'If an account exists with this email, you will receive a password reset link shortly'
     }), 200
