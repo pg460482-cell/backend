@@ -223,7 +223,7 @@ def refresh():
         return jsonify({'error': 'Internal server error'}), 500
 
 # ================ VERIFY EMAIL ================
-@bp.route('/verify-email/<token>', methods=['POST'])
+@bp.route('/verify-email/<token>', methods=['GET'])
 @limiter.limit("10 per minute")
 def verify_email(token):
     if not token:
@@ -517,10 +517,7 @@ def change_password():
     current_password=data['current_password']
     new_password=data['new_password']
 
-    if not data or 'current_password' not in data or 'new_password' not in data:
-        return jsonify({'error':'Current password and new password are required'}),400
-    current_password=data['current_password']
-    new_password=data['new_password']
+  
 
     if not bcrypt.check_password_hash(user.password_hash,current_password):
         return jsonify({'error':'Current password is incorrect'}),401
