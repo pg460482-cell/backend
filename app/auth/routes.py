@@ -378,7 +378,7 @@ def logout():
         blacklisted_token=Token(
             token=jti,
             token_type='access',
-            expires_id=expires_at,
+            expires_at=expires_at,
             user_id=current_user_id,
             is_used=True,
             revoked_at=datetime.utcnow(),
@@ -396,7 +396,7 @@ def logout():
         is_used=False
     ).update({
         'is_used':True,
-        'revoked_at':datetime.utcnow
+        'revoked_at':datetime.utcnow()
     })
     try:
         db.session.commit()
