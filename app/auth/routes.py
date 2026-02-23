@@ -12,6 +12,7 @@ from app.models import User,Token
 from datetime import datetime,timedelta
 from sqlalchemy import or_
 import re
+import secrets
 def validate_email(email):
     pattern=r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
     return re.match(pattern,email)is not None
