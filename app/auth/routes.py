@@ -270,47 +270,57 @@ def verify_email(token):
 @limiter.limit("3 per hour")
 def forgot_password():
     data = request.get_json()
+
     if not data or 'email' not in data:
         return jsonify({'error': 'Email is required'}), 400
-    
+
     email = data['email'].strip().lower()
     user = User.query.filter_by(email=email).first()
-    
+
     if user:
         try:
-            # Create password reset token
-            reset_token = create_access_token(
-                identity=user.id,
-                expires_delta=timedelta(hours=1),
-                additional_claims={'type': 'password_reset'}
-            )
-            
-            # Store token in database
+            # 🔐 1️⃣ Delete old reset tokens (Very Important)
+            Token.query.filter_by(
+                user_id=user.id,
+                token_type='reset'
+            ).delete()
+            db.session.commit()
+
+            # 🔐 2️⃣ Generate secure random reset token
+            reset_token = secrets.token_urlsafe(32)
+
+            # ⏳ 3️⃣ Set expiry (1 hour)
+            expires_at = datetime.utcnow() + timedelta(hours=1)
+
+            # 💾 4️⃣ Store token in DB
             token_record = Token(
                 token=reset_token,
                 token_type='reset',
-                expires_at=datetime.utcnow() + timedelta(hours=1),
+                expires_at=expires_at,
                 user_id=user.id,
                 device_info=request.headers.get('User-Agent', 'Unknown')[:200],
-                ip_address=request.remote_addr
+                ip_address=request.remote_addr,
+                is_used=False
             )
-            
+
             db.session.add(token_record)
             db.session.commit()
-            
-            # TODO: Send email with reset link containing reset_token
+
+            # 📩 5️⃣ TODO: Send email with reset link
+            # Example:
+            # reset_link = f"https://yourfrontend.com/reset-password?token={reset_token}"
+            # send_email(user.email, reset_link)
+
             app.logger.info(f"Password reset token created for {email}")
-            
+
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Forgot password error: {str(e)}")
-            # Still return success message for security
-    
-    # Always return same message (security best practice)
+
+    # 🔒 Always return same response (prevent email enumeration)
     return jsonify({
         'message': 'If an account exists with this email, you will receive a password reset link shortly'
     }), 200
-
 # ================ RESET PASSWORD ================
 @bp.route('/reset-password', methods=['POST'])
 @limiter.limit("5 per hour")
