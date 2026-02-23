@@ -47,30 +47,9 @@ def send_email(subject,recipients,body,html=None):
     except Exception as e:
         app.logger.error(f"Failed to send email: {str(e)}")
         return False
-def send_email(subject, recipients, body, html=None):
-    try:
-        msg=Message(
-            subject=subject,
-            recipients=recipients,
-            body=body,
-            html=html,
-            sender=app.config['MAIL_DEFAULT_SENDER']
-        )
-        mail.send(msg)
-        app.logger.info(f"Email sent to {recipients}")
-        return True
-    except Exception as e:
-        app.logger.error(f"Failed to send email: {str(e)}")
-        return False
-    
+
 def send_verification_email(user):
     token_record, token=generate_token(user, 'verify', expires_in=86400)
-
-    
-    
-
-
-
     
     verification_url = url_for('auth.verify_email', token=token, _external=True)
     
@@ -97,7 +76,7 @@ def send_password_reset_email(user):
     """Send password reset email"""
     token_record, token = generate_token(user, 'reset', expires_in=3600)
     
-   -
+   
     
     reset_url = url_for('auth.reset_password', token=token, _external=True)
     
