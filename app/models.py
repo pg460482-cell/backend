@@ -89,7 +89,6 @@ class User(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
-
 class Token(db.Model):
     __tablename__ = 'tokens'
 
