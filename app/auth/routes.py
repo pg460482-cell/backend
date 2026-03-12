@@ -6,6 +6,7 @@ from flask_jwt_extended import(
     get_jwt_identity,
     get_jwt
 )
+from app.utils.email_templates import send_verification_email
 from app.extensions import db,bcrypt,limiter
 from app.auth import bp
 from app.models import User,Token
@@ -82,6 +83,8 @@ def register():
         )
         db.session.add(token_record)
         db.session.commit()
+        send_verification_email(user.email, verify_token)
+
         return jsonify({
             'message':'Registration successful.please verify your email',
             'user_id':user.id
@@ -306,6 +309,7 @@ def forgot_password():
 
             db.session.add(token_record)
             db.session.commit()
+            send_password_reset_email(user.email, reset_token)
 
             # 📝 5️⃣ Log token for testing (remove in production)
             app.logger.info(f"Password reset token created for {email}")
