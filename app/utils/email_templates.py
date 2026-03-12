@@ -1,9 +1,13 @@
 from flask_mail import Message
 from app.extensions import mail
 from flask import current_app
+import socket
 
 def send_verification_email(user_email, token):
     try:
+        # Connection timeout set karo
+        socket.setdefaulttimeout(30)
+        
         verify_url = f"https://backend-2-hcso.onrender.com/api/v1/auth/verify-email/{token}"
         
         msg = Message(
@@ -28,6 +32,8 @@ def send_verification_email(user_email, token):
 
 def send_password_reset_email(user_email, token):
     try:
+        socket.setdefaulttimeout(30)
+        
         msg = Message(
             subject="Reset Your Password",
             recipients=[user_email],
