@@ -1,13 +1,18 @@
 from flask_mail import Message
 from app.extensions import mail
 from flask import current_app
-import socket
+import threading
+
+def send_email_async(app, msg):
+    with app.app_context():
+        try:
+            mail.send(msg)
+        except Exception as e:
+            app.logger.error(f"Async email error: {str(e)}")
 
 def send_verification_email(user_email, token):
     try:
-        # Connection timeout set karo
-        socket.setdefaulttimeout(30)
-        
+        app = current_app._get_current_object()
         verify_url = f"https://backend-2-hcso.onrender.com/api/v1/auth/verify-email/{token}"
         
         msg = Message(
@@ -23,16 +28,19 @@ def send_verification_email(user_email, token):
 <p>Expires in <b>24 hours</b>.</p>
 """
         )
-        mail.send(msg)
+        # ✅ Background mein bhejo — request block nahi hogi
+        thread = threading.Thread(target=send_email_async, args=(app, msg))
+        thread.daemon = True
+        thread.start()
         return True
     except Exception as e:
-        current_app.logger.error(f"Email send error: {str(e)}")
+        current_app.logger.error(f"Email error: {str(e)}")
         return False
 
 
 def send_password_reset_email(user_email, token):
     try:
-        socket.setdefaulttimeout(30)
+        app = current_app._get_current_object()
         
         msg = Message(
             subject="Reset Your Password",
@@ -45,8 +53,10 @@ def send_password_reset_email(user_email, token):
 <p>Expires in <b>1 hour</b>.</p>
 """
         )
-        mail.send(msg)
+        thread = threading.Thread(target=send_email_async, args=(app, msg))
+        thread.daemon = True
+        thread.start()
         return True
     except Exception as e:
-        current_app.logger.error(f"Password reset email error: {str(e)}")
+        current_app.logger.error(f"Email error: {str(e)}")
         return False
