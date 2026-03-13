@@ -554,7 +554,16 @@ def change_password():
         return jsonify({'error':'Internal server error'}),500
     
 
-
+@bp.route('/dev-clear-db', methods=['GET'])
+def clear_db():
+    try:
+        Token.query.delete()
+        User.query.delete()
+        db.session.commit()
+        return jsonify({'message': 'Database cleared!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
     
     
     
