@@ -6,7 +6,7 @@ from flask_jwt_extended import(
     get_jwt_identity,
     get_jwt
 )
-from app.utils.email_templates import send_verification_email
+from app.utils.email_templates import send_verification_email, send_password_reset_email
 from app.extensions import db,bcrypt,limiter
 from app.auth import bp
 from app.models import User,Token
