@@ -33,33 +33,33 @@ def sanitize_input(text):
     if text:
         return re.sub(r'[<>&\']','',text)
     return text
-@bp.route('/register',methods=['POST'])
+@bp.route('/register', methods=['POST'])
 @limiter.limit("5 per hour")
 def register():
-    data=request.get_json()
+    data = request.get_json()
     if not data:
-        return jsonify({'error':'No data provided '}),400
-    email=data.get('email','').strip().lower()
-    username=sanitize_input(data.get('username','').strip())
-    password=data.get('password','')
-    if not email or not username or not password:
-        return jsonify({'error':'Email,username and password are required'}),400
-    if not validate_email(email):
-        return jsonify({'error':'Invalid email format'}),400
-    is_valid,msg=validate_password(password)
-    if  not is_valid:
-        return jsonify({'error':msg}),400
-    if len(username)<3 or len(username)>20:
-        return jsonify({'error':'Username must be between 3-20 characters'}),400
-    if User.query.filter_by(email=email).first():
-
+        return jsonify({'error': 'No data provided'}), 400
     
-
-        return jsonify({'error':'Email already registered'}),409
+    email = data.get('email', '').strip().lower()
+    username = sanitize_input(data.get('username', '').strip())
+    password = data.get('password', '')
+    
+    if not email or not username or not password:
+        return jsonify({'error': 'Email, username and password are required'}), 400
+    if not validate_email(email):
+        return jsonify({'error': 'Invalid email format'}), 400
+    is_valid, msg = validate_password(password)
+    if not is_valid:
+        return jsonify({'error': msg}), 400
+    if len(username) < 3 or len(username) > 20:
+        return jsonify({'error': 'Username must be between 3-20 characters'}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already registered'}), 409
     if User.query.filter_by(username=username).first():
-        return jsonify({'error':'username already taken'}),409
-    hashed_password=bcrypt.generate_password_hash(password).decode('utf-8')
-    user=User(
+        return jsonify({'error': 'Username already taken'}), 409
+    
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    user = User(
         username=username,
         email=email,
         password_hash=hashed_password,
@@ -68,31 +68,37 @@ def register():
     try:
         db.session.add(user)
         db.session.flush()
-        verify_token=create_access_token(
+        verify_token = create_access_token(
             identity=str(user.id),
             expires_delta=timedelta(hours=24),
-            additional_claims={'type':'email_verification'}
+            additional_claims={'type': 'email_verification'}
         )
-        token_record=Token(
+        token_record = Token(
             token=verify_token,
             token_type='verify',
-            expires_at=datetime.utcnow()+timedelta(hours=24),
+            expires_at=datetime.utcnow() + timedelta(hours=24),
             user_id=user.id,
-            device_info=request.headers.get('User-Agent','Unknown')[:200],
+            device_info=request.headers.get('User-Agent', 'Unknown')[:200],
             ip_address=request.remote_addr
         )
         db.session.add(token_record)
         db.session.commit()
-        send_verification_email(user.email, verify_token)
+
+        # ✅ Email try karo — fail hone pe bhi register success hoga
+        try:
+            send_verification_email(user.email, verify_token)
+        except Exception as e:
+            app.logger.error(f"Email failed: {str(e)}")
 
         return jsonify({
-            'message':'Registration successful.please verify your email',
-            'user_id':user.id
-        }),201
+            'message': 'Registration successful. Please verify your email',
+            'user_id': user.id,
+            'verify_token': verify_token  # ← temporary, baad mein hatana hai
+        }), 201
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Registration error:{str(e)}")
-        return jsonify({'error':'Internal server error'}),500
+        app.logger.error(f"Registration error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
         
         
 # # ================ LOGIN ================
