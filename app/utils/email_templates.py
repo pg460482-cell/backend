@@ -4,6 +4,7 @@ from flask import current_app
 def send_verification_email(user_email, token):
     try:
         resend.api_key = current_app.config.get('RESEND_API_KEY')
+        current_app.logger.info(f"🔑 API Key: {re_GcCPb14h_BPDuchkBsb2GirH8r7tWhg5V}")
         
         verify_url = f"https://backend-2-hcso.onrender.com/api/v1/auth/verify-email/{token}"
         
