@@ -36,6 +36,7 @@ class Config:
     MAIL_USERNAME       = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD       = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
 
     # Rate Limiting
     RATELIMIT_DEFAULT     = "200 per day, 50 per hour"
