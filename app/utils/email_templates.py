@@ -5,6 +5,9 @@ def send_verification_email(user_email, token):
     try:
         resend.api_key = current_app.config.get('RESEND_API_KEY')
         
+        # ← Debug lines add karo
+        current_app.logger.info(f"🔑 Key length: {len(resend.api_key) if resend.api_key else 'NONE'}")
+        current_app.logger.info(f"🔑 Key starts: {resend.api_key[:5] if resend.api_key else 'NONE'}")
         
         verify_url = f"https://backend-2-hcso.onrender.com/api/v1/auth/verify-email/{token}"
         
