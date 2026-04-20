@@ -3,32 +3,45 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.api import bp
 from app.models import User, Token
-from datetime import datetime
+from datetime import datetime, timezone
+import re
 
-# =========================
-# GET CURRENT USER PROFILE
-# =========================
+
+def get_real_ip():
+    forwarded = request.headers.get('X-Forwarded-For')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr
+
+
+def sanitize_input(text):
+    if text:
+        return re.sub(r'[<>&\']', '', text)
+    return text
+
+
+def validate_email_format(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
+# ================= GET CURRENT USER =================
+
 @bp.route('/users/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-
+    user = db.session.get(User, get_jwt_identity())
     if not user:
         return jsonify({'error': 'User not found'}), 404
-
     return jsonify(user.to_dict()), 200
 
 
-# =========================
-# UPDATE CURRENT USER
-# =========================
+# ================= UPDATE CURRENT USER =================
+
 @bp.route('/users/me', methods=['PUT'])
 @jwt_required()
 def update_current_user():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-
+    user = db.session.get(User, get_jwt_identity())
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
@@ -36,68 +49,78 @@ def update_current_user():
     if not data:
         return jsonify({'error': 'No data provided'}), 400
 
-    # ---- Username update ----
     if 'username' in data and data['username'] != user.username:
-        if not data['username'].strip():
-            return jsonify({'error': 'Username cannot be empty'}), 400
+        new_username = sanitize_input(data['username'].strip())
 
-        existing = User.query.filter_by(username=data['username']).first()
+        if not new_username:
+            return jsonify({'error': 'Username cannot be empty'}), 400
+        if len(new_username) < 3 or len(new_username) > 20:
+            return jsonify({'error': 'Username must be between 3 and 20 characters'}), 400
+        if not re.match(r'^[A-Za-z][A-Za-z0-9_.]*$', new_username):
+            return jsonify({'error': 'Username must start with a letter'}), 400
+
+        existing = User.query.filter_by(username=new_username).first()
         if existing:
             return jsonify({'error': 'Username already taken'}), 409
 
-        user.username = data['username']
+        user.username = new_username
 
-    # ---- Email update ----
     if 'email' in data and data['email'] != user.email:
-        if not data['email'].strip():
-            return jsonify({'error': 'Email cannot be empty'}), 400
+        new_email = data['email'].strip().lower()
 
-        existing = User.query.filter_by(email=data['email']).first()
+        if not new_email:
+            return jsonify({'error': 'Email cannot be empty'}), 400
+        if not validate_email_format(new_email):
+            return jsonify({'error': 'Invalid email format'}), 400
+
+        existing = User.query.filter_by(email=new_email).first()
         if existing:
             return jsonify({'error': 'Email already registered'}), 409
 
-        user.email = data['email']
+        user.email       = new_email
         user.is_verified = False
 
-    db.session.commit()
+    try:
+        db.session.commit()
+        return jsonify({
+            'message': 'Profile updated successfully',
+            'user':    user.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
-    return jsonify({
-        'message': 'Profile updated successfully',
-        'user': user.to_dict()
-    }), 200
 
+# ================= GET ACTIVE SESSIONS =================
 
-# =========================
-# GET ACTIVE SESSIONS
-# =========================
 @bp.route('/users/me/sessions', methods=['GET'])
 @jwt_required()
-def get_user_session():
+def get_user_sessions():
     user_id = get_jwt_identity()
 
     active_sessions = Token.query.filter(
-        Token.user_id == user_id,
+        Token.user_id    == user_id,
         Token.token_type == 'refresh',
-        Token.is_used == False,
-        Token.expires_at > datetime.utcnow()
+        Token.is_used    == False,
+        Token.expires_at > datetime.now(timezone.utc)
     ).all()
 
-    sessions = []
-    for session in active_sessions:
-        sessions.append({
-            'id': session.id,
-            'device': session.device_info,
-            'ip_address': session.ip_address,
-            'created_at': session.created_at.isoformat(),
-            'expires_at': session.expires_at.isoformat()
-        })
+    sessions = [
+        {
+            'id':         s.id,
+            'device':     s.device_info,
+            'ip_address': s.ip_address,
+            'created_at': s.created_at.isoformat() if s.created_at else None,
+            'expires_at': s.expires_at.isoformat() if s.expires_at else None,
+        }
+        for s in active_sessions
+    ]
 
     return jsonify({'sessions': sessions}), 200
 
 
-# =========================
-# REVOKE A SESSION
-# =========================
+# ================= REVOKE SESSION =================
+
 @bp.route('/users/me/sessions/<int:session_id>', methods=['DELETE'])
 @jwt_required()
 def revoke_session(session_id):
@@ -112,19 +135,25 @@ def revoke_session(session_id):
     if not session:
         return jsonify({'error': 'Session not found'}), 404
 
-    session.is_used = True
-    session.revoked_at = datetime.utcnow()
-    db.session.commit()
+    if session.is_used:
+        return jsonify({'error': 'Session already revoked'}), 400
 
-    return jsonify({'message': 'Session revoked successfully'}), 200
+    session.is_used    = True
+    session.revoked_at = datetime.now(timezone.utc)
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Session revoked successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 
-# =========================
-# TEST API
-# =========================
+# ================= TEST =================
+
 @bp.route('/test', methods=['GET'])
 def test():
+    from flask import current_app
+    if not current_app.config.get('DEBUG'):
+        return jsonify({'error': 'Not found'}), 404
     return jsonify({'message': 'API is working'}), 200
-
-
-
