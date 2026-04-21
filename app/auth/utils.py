@@ -34,7 +34,7 @@ def generate_token(user, token_type, expires_in=3600):
     )
 
     db.session.add(token_record)
-    db.session.flush()                        # commit nahi — caller commit karega
+    db.session.commit()                        
 
     return token_record, token
 
